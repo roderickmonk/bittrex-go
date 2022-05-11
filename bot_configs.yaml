@@ -1,0 +1,7 @@
+botconfigs:
+  - market: ETH-BTC
+    archiveorderbooks: True
+    archivetrades: False
+  - market: NEO-BTC
+    archiveorderbooks: False
+    archivetrades: True

@@ -51,14 +51,14 @@ func NewArchiver() error {
 
 	var wg sync.WaitGroup
 
-	// Listener for orderbooks to be archived
+	// Orderbooks consumer (orderbooks to be archived to Mongo)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		BrokerReceiver("orderbooks")
 	}()
 
-	// Listener for trades to be archived
+	// Trades consumer (trades to be archived to Mongo)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -75,6 +75,7 @@ func NewArchiver() error {
 
 		botConfig := botConfig
 
+		// Each bot ingests orderbooks and trades for its allocated market
 		go func() {
 			defer wg.Done()
 			Bot(&botConfig)

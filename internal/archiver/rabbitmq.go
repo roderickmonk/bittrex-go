@@ -27,7 +27,7 @@ func RabbitConnect() {
 
 }
 
-func RabbitPublish(routing_key string, body string) {
+func RabbitPublish(routing_key string, body []byte) {
 
 	err = channel.Publish(
 		"GENERAL", // exchange

@@ -1,6 +1,7 @@
 package archiver
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -23,16 +24,51 @@ func Bot(botConfig *BotConfig) {
 	sleepTime := time.Duration(r.Int31n(1000)) * 5_000_000
 	// fmt.Println("timeBetween: ", sleepTime)
 
-	for i := 0; i < 5; i++ {
+	for {
 
 		if botConfig.ArchiveOrderbooks {
-			msg := fmt.Sprintf("Orderbooks: %v", botConfig.Market)
-			RabbitPublish("orderbooks", msg)
+
+			// msg := fmt.Sprintf("Orderbooks: %v", botConfig.Market)
+			// RabbitPublish("orderbooks", msg)
+
+			orderbook := Orderbook{
+				Ts:     time.Now(),
+				Market: botConfig.Market,
+				Buy:    []Entry{{1.0, 5.1}, {2.0, 5.2}},
+				Sell:   []Entry{{3.0, 5.3}, {4.0, 5.4}},
+			}
+
+			// fmt.Println("orderbook:", orderbook)
+
+			json, err := json.Marshal(orderbook)
+			if err != nil {
+				panic(err)
+			}
+
+			// fmt.Println("marshalled", string(json))
+			// fmt.Println("marshalled (raw)", json)
+
+			RabbitPublish("orderbooks", json)
 		}
 
 		if botConfig.ArchiveTrades {
-			msg := fmt.Sprintf("Trades: %v", botConfig.Market)
-			RabbitPublish("trades", msg)
+
+			trade := Trade{
+				Ts:         time.Now(),
+				Market:     botConfig.Market,
+				Id:         fmt.Sprintf("%v", rand.Int()),
+				ExecutedAt: time.Now(),
+				R:          1.0,
+				Q:          5.0,
+				TakerSide:  "buy",
+			}
+
+			json, err := json.Marshal(trade)
+			if err != nil {
+				panic(err)
+			}
+
+			RabbitPublish("trades", json)
 		}
 
 		time.Sleep(sleepTime)

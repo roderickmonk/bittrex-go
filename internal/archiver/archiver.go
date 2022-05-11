@@ -21,6 +21,8 @@ type BotConfigs struct {
 
 func NewArchiver() error {
 
+	NewMongoClient()
+
 	RabbitConnect()
 	defer RabbitClose()
 
@@ -55,14 +57,14 @@ func NewArchiver() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		BrokerReceiver("orderbooks")
+		BrokerReceiver(MongoClient, "orderbooks")
 	}()
 
 	// Trades consumer (trades to be archived to Mongo)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		BrokerReceiver("trades")
+		BrokerReceiver(MongoClient, "trades")
 	}()
 
 	for _, botConfig := range botConfigs.BotConfigs {

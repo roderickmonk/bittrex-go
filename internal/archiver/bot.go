@@ -1,10 +1,15 @@
 package archiver
 
 import (
+	// "encoding/json"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"net/http"
+
+	// "os"
 	"time"
 )
 
@@ -28,47 +33,51 @@ func Bot(botConfig *BotConfig) {
 
 		if botConfig.ArchiveOrderbooks {
 
-			// msg := fmt.Sprintf("Orderbooks: %v", botConfig.Market)
-			// RabbitPublish("orderbooks", msg)
-
-			orderbook := Orderbook{
-				Ts:     time.Now(),
-				Market: botConfig.Market,
-				Buy:    []Entry{{1.0, 5.1}, {2.0, 5.2}},
-				Sell:   []Entry{{3.0, 5.3}, {4.0, 5.4}},
-			}
-
-			// fmt.Println("orderbook:", orderbook)
-
-			json, err := json.Marshal(orderbook)
+			resp, err := http.Get(
+				"https://api.bittrex.com/v3/markets/" +
+					botConfig.Market +
+					"/orderbook?depth=25")
 			if err != nil {
+				log.Panic(err)
+			}
+			defer resp.Body.Close()
+
+			http_body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println("io.ReadAll: ", err)
 				panic(err)
 			}
 
-			// fmt.Println("marshalled", string(json))
-			// fmt.Println("marshalled (raw)", json)
+			brokerMsg := BrokerMsg{
+				Market:   botConfig.Market,
+				HttpBody: http_body,
+			}
+			bytes, _ := json.Marshal(brokerMsg)
 
-			RabbitPublish("orderbooks", json)
+			RabbitPublish("orderbooks", bytes)
 		}
 
 		if botConfig.ArchiveTrades {
 
-			trade := Trade{
-				Ts:         time.Now(),
-				Market:     botConfig.Market,
-				Id:         fmt.Sprintf("%v", rand.Int()),
-				ExecutedAt: time.Now(),
-				R:          1.0,
-				Q:          5.0,
-				TakerSide:  "buy",
-			}
-
-			json, err := json.Marshal(trade)
+			resp, err := http.Get("https://api.bittrex.com/v3/markets/" + botConfig.Market + "/trades")
 			if err != nil {
+				log.Panic(err)
+			}
+			defer resp.Body.Close()
+
+			http_body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println("io.ReadAll: ", err)
 				panic(err)
 			}
 
-			RabbitPublish("trades", json)
+			brokerMsg := BrokerMsg{
+				Market:   botConfig.Market,
+				HttpBody: http_body,
+			}
+			bytes, _ := json.Marshal(brokerMsg)
+
+			RabbitPublish("trades", bytes)
 		}
 
 		time.Sleep(sleepTime)

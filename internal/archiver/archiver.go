@@ -77,7 +77,7 @@ func NewArchiver() error {
 
 		botConfig := botConfig
 
-		// Each bot ingests orderbooks and trades for its allocated market
+		// Bots can ingest orderbooks and trades for its allocated market
 		go func() {
 			defer wg.Done()
 			Bot(&botConfig)

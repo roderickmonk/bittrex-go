@@ -36,10 +36,9 @@ func RabbitPublish(routing_key string, body []byte) {
 		false, // immediate
 		amqp.Publishing{
 			ContentType: "application/json",
-			Body:        []byte(body),
+			Body:        body,
 		})
 	failOnError(err, "Failed to publish a message")
-	log.Printf("Sent to Broker: %s\n", body)
 }
 
 func RabbitClose() {

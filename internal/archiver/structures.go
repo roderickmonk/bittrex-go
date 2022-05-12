@@ -5,23 +5,67 @@ import (
 )
 
 type Entry struct {
-	R float64 `json:"r"`
-	Q float64 `json:"q"`
+	Rate     string `json:"rate"`
+	Quantity string `json:"quantity"`
 }
 
-type Orderbook struct {
-	Ts     time.Time `json:"ts"`
-	Market string    `json:"market"`
-	Buy    []Entry   `json:"buy"`
-	Sell   []Entry   `json:"sell"`
+type BittrexOrderbook struct {
+	Bid []Entry `json:"bid"`
+	Ask []Entry `json:"ask"`
 }
 
-type Trade struct {
-	Ts         time.Time `json:"ts"`
-	Market     string    `json:"market"`
-	Id         string    `json:"id"`
-	ExecutedAt time.Time `json:"executedAt"`
-	R          float64   `json:"r"`
-	Q          float64   `json:"q"`
-	TakerSide  string    `json:"takerSide"`
+/*
+{
+  "bid": [
+    {
+      "quantity": "number (double)",
+      "rate": "number (double)"
+    }
+  ],
+  "ask": [
+    {
+      "quantity": "number (double)",
+      "rate": "number (double)"
+    }
+  ]
+}
+*/
+
+type MongoOrderbookEntry struct {
+	R float64 `bson:"r"`
+	Q float64 `bson:"q"`
+}
+
+type MongoOrderbook struct {
+	Ts     time.Time             `bson:"ts"`
+	Market string                `bson:"market"`
+	Bid    []MongoOrderbookEntry `bson:"bid"`
+	Ask    []MongoOrderbookEntry `bson:"ask"`
+}
+
+type BittrexTrade struct {
+	Id         string `json:"id"`
+	ExecutedAt string `json:"executedAt"`
+	R          string `json:"rate"`
+	Q          string `json:"quantity"`
+	TakerSide  string `json:"takerSide"`
+}
+
+type MongoTrade struct {
+	Id         string    `bson:"id"`
+	ExecutedAt time.Time `bson:"executedAt"`
+	R          float64   `bson:"r"`
+	Q          float64   `bson:"q"`
+	TakerSide  string    `bson:"takerSide"`
+}
+
+type MongoTrades struct {
+	Ts     time.Time    `bson:"ts"`
+	Market string       `bson:"market"`
+	Trades []MongoTrade `bson:"trades"`
+}
+
+type BrokerMsg struct {
+	Market   string
+	HttpBody []byte
 }

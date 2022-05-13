@@ -42,7 +42,6 @@ func ArchiveBot(mongoClient *mongo.Client, routing_key string) {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	// log.Printf("Binding queue %s to exchange %s with routing key %s", q.Name, "GENERAL", routing_key)
 	err = ch.QueueBind(
 		q.Name,      // queue name
 		routing_key, // routing key

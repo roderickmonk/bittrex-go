@@ -1,19 +1,10 @@
 package archiver
 
 import (
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func failOnError(err error, msg string) {
-	if err != nil {
-		log.Panicf("%s: %s", msg, err)
-	}
-}
-
 var connection *amqp.Connection
-var err error
 var channel *amqp.Channel
 var q amqp.Queue
 
@@ -23,11 +14,11 @@ func RabbitConnect() {
 	failOnError(err, "Failed to connect to RabbitMQ")
 
 	channel, err = connection.Channel()
-	failOnError(err, "Failed to open a channel")
+	failOnError(err, "Failed to open a RabbitMQ channel")
 
 }
 
-func RabbitPublish(routing_key string, body []byte) {
+func RabbitPublish(routing_key string, data []byte) {
 
 	err = channel.Publish(
 		"GENERAL", // exchange
@@ -36,7 +27,7 @@ func RabbitPublish(routing_key string, body []byte) {
 		false, // immediate
 		amqp.Publishing{
 			ContentType: "application/json",
-			Body:        body,
+			Body:        data,
 		})
 	failOnError(err, "Failed to publish a message")
 }

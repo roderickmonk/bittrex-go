@@ -3,75 +3,52 @@ package archiver
 import (
 	"errors"
 	"flag"
-	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 )
-
-type BotConfig struct {
-	Market            string
-	ArchiveOrderbooks bool
-	ArchiveTrades     bool
-}
-
-type BotConfigs struct {
-	BotConfigs []BotConfig
-}
 
 func NewArchiver() error {
 
-	NewMongoClient()
+	mongoClient := NewMongoClient()
 
 	RabbitConnect()
 	defer RabbitClose()
 
 	var fileName string
-	flag.StringVar(&fileName, "config", "bot_configs.yaml", "Configuration File")
+	flag.StringVar(&fileName, "config", "bot_config.yaml", "Configuration File")
 	flag.Parse()
 
 	if fileName == "" {
-		errMsg := "Please provide yaml file by using -config option"
-		fmt.Println(errMsg)
-		return errors.New(errMsg)
+		failOnError(errors.New("File Not Found"), "Please provide yaml file by using -config option")
 	}
 
 	yamlFile2, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		errMsg :=
-			fmt.Sprintf("Error reading YAML file: %s\n", err)
-		return errors.New(errMsg)
-	}
+	failOnError(err, "Error reading YAML file")
 
 	var botConfigs BotConfigs
 	err = yaml.Unmarshal(yamlFile2, &botConfigs)
-	if err != nil {
-		errMsg :=
-			fmt.Sprintf("Error parsing YAML file: %s\n", err)
-		return errors.New(errMsg)
-	}
+	failOnError(err, "Error parsing YAML file")
 
 	var wg sync.WaitGroup
 
-	// Orderbooks consumer (orderbooks to be archived to Mongo)
+	// Orderbooks consumer (orderbooks to be archived)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		BrokerReceiver(MongoClient, "orderbooks")
+		ArchiveBot(mongoClient, "orderbooks")
 	}()
 
-	// Trades consumer (trades to be archived to Mongo)
+	// Trades consumer (trades to be archived)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		BrokerReceiver(MongoClient, "trades")
+		ArchiveBot(mongoClient, "trades")
 	}()
 
+	// Launch the bots
 	for _, botConfig := range botConfigs.BotConfigs {
-		// fmt.Println(i, botConfig)
-		// fmt.Println(i, botConfig.Market)
-		// fmt.Println(i, botConfig.ArchiveOrderbooks)
-		// fmt.Println(i, botConfig.ArchiveTrades)
 
 		wg.Add(1)
 
@@ -80,7 +57,7 @@ func NewArchiver() error {
 		// Bots can ingest orderbooks and trades for its allocated market
 		go func() {
 			defer wg.Done()
-			Bot(&botConfig)
+			BittrexBot(&botConfig)
 		}()
 
 	}

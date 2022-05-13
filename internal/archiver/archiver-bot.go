@@ -9,12 +9,10 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	// "go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	// "go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func BrokerReceiver(mongoClient *mongo.Client, routing_key string) {
+func ArchiveBot(mongoClient *mongo.Client, routing_key string) {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -64,29 +62,34 @@ func BrokerReceiver(mongoClient *mongo.Client, routing_key string) {
 	)
 	failOnError(err, "Failed to register a consumer")
 
-	collection := MongoClient.Database("history").Collection(routing_key)
+	collection := mongoClient.Database("history").Collection(routing_key)
 
-	archive := func(http_body []byte) {
+	level1Parse := func(msg []byte) (market string, httpBody *[]byte) {
+
+		var brokerMsg BrokerMsg
+
+		err = json.Unmarshal(msg, &brokerMsg)
+		failOnError(err, "Unmarshal Error")
+
+		return brokerMsg.Market, &brokerMsg.HttpBody
+	}
+
+	archive := func(msg []byte) {
 
 		switch routing_key {
 
 		case "orderbooks":
 
-			var brokerMsg BrokerMsg
-
-			if err := json.Unmarshal(http_body, &brokerMsg); err != nil {
-				fmt.Println("Unmarshal: ", err)
-				panic(err)
-			}
-			fmt.Println("market: ", brokerMsg.Market)
-
 			fmt.Println("Orderbook Received")
-			var orderbook BittrexOrderbook
-			if err := json.Unmarshal(brokerMsg.HttpBody, &orderbook); err != nil {
-				fmt.Println("Unmarshal: ", err)
-				panic(err)
-			}
 
+			// Nested unmarshalling
+			market, httpBody := level1Parse(msg)
+
+			var orderbook BittrexOrderbook
+			err = json.Unmarshal(*httpBody, &orderbook)
+			failOnError(err, "Unmarshal Error")
+
+			// Massage the Bittrex orderbook data ready to be archived to Mongo
 			var bids []MongoOrderbookEntry
 			for _, e := range orderbook.Bid {
 				r, _ := strconv.ParseFloat(e.Rate, 64)
@@ -95,7 +98,7 @@ func BrokerReceiver(mongoClient *mongo.Client, routing_key string) {
 				m := MongoOrderbookEntry{r, q}
 				bids = append(bids, m)
 			}
-			fmt.Println("bids: ", bids)
+			// fmt.Println("bids: ", bids)
 
 			var asks []MongoOrderbookEntry
 			for _, e := range orderbook.Ask {
@@ -105,42 +108,31 @@ func BrokerReceiver(mongoClient *mongo.Client, routing_key string) {
 				m := MongoOrderbookEntry{r, q}
 				asks = append(asks, m)
 			}
-			fmt.Println("asks: ", asks)
+			// fmt.Println("asks: ", asks)
 
-			save_orderbook := MongoOrderbook{
+			document := MongoOrderbook{
 				Ts:     time.Now(),
-				Market: brokerMsg.Market,
+				Market: market,
 				Bid:    bids,
 				Ask:    asks,
 			}
-			_, err = collection.InsertOne(context.TODO(), save_orderbook)
-			if err != nil {
-				panic(err)
-			}
+			_, err = collection.InsertOne(context.TODO(), document)
+			failOnError(err, "Unable to insert document into orderbooks collection")
 
 		case "trades":
 
-			var brokerMsg BrokerMsg
+			fmt.Println("Trades Received")
 
-			if err := json.Unmarshal(http_body, &brokerMsg); err != nil {
-				fmt.Println("Unmarshal: ", err)
-				panic(err)
-			}
-
-			fmt.Println("market: ", brokerMsg.Market)
+			// Nested unmarshalling
+			market, httpBody := level1Parse(msg)
 
 			var trades []BittrexTrade
-			if err := json.Unmarshal(brokerMsg.HttpBody, &trades); err != nil {
-				fmt.Println("Unmarshal: ", err)
-				panic(err)
-			}
+			err := json.Unmarshal(*httpBody, &trades)
+			failOnError(err, "Unmarshal Error")
 
-			for i, t := range trades {
-				fmt.Println(i, t.ExecutedAt, t.Id, t.R, t.Q, t.TakerSide)
-			}
-
+			// Massage the Bittrex trades data ready to be archived to Mongo
 			var mongoTrades []MongoTrade
-			for i, t := range trades {
+			for _, t := range trades {
 				executedAt, _ := time.Parse(time.RFC3339, t.ExecutedAt)
 				r, _ := strconv.ParseFloat(t.R, 64)
 				q, _ := strconv.ParseFloat(t.Q, 64)
@@ -151,19 +143,16 @@ func BrokerReceiver(mongoClient *mongo.Client, routing_key string) {
 					Q:          q,
 					TakerSide:  t.TakerSide,
 				})
-				fmt.Println(i, t.ExecutedAt, t.Id, t.R, t.Q, t.TakerSide)
 			}
-			fmt.Println("mongoTrades:\n", mongoTrades)
 
-			var saveTrades = MongoTrades{
+			var document = MongoTrades{
 				Ts:     time.Now(),
-				Market: brokerMsg.Market,
+				Market: market,
 				Trades: mongoTrades,
 			}
-			_, err = collection.InsertOne(context.TODO(), saveTrades)
-			if err != nil {
-				panic(err)
-			}
+			_, err = collection.InsertOne(context.TODO(), document)
+			failOnError(err, "Unable to insert document into trades collection")
+
 		}
 	}
 

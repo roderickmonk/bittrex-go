@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/roderickmonk/hft-go/internal/archiver"
+	"github.com/roderickmonk/bittrex-go/internal/archiver"
 )
 
 func main() {

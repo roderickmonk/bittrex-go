@@ -1,4 +1,4 @@
-module github.com/roderickmonk/hft-go
+module github.com/roderickmonk/bittrex-go
 
 go 1.18
 
